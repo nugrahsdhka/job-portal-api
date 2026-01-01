@@ -1,4 +1,4 @@
-# 🚀 Job Portal API
+# Job Portal API
 
 > **RESTful Backend API** for a job marketplace platform, built with **Node.js**, **TypeScript**, and a clean **Layered Architecture** focusing on security and maintainability.
 
