@@ -7,23 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enum untuk Role User
 enum Role {
   EMPLOYER
   APPLICANT
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(APPLICANT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
 
-  // Relasi: Satu User (Employer) bisa punya banyak Jobs
-  jobs      Job[]
+model User {
+  id          Int           @id @default(autoincrement())
+  name        String
+  email       String        @unique
+  password    String
+  role        Role          @default(APPLICANT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  jobs        Job[]
+  application Application[]
 }
 
 model Job {
@@ -36,7 +40,20 @@ model Job {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relasi ke User
   employerId  Int
-  employer    User     @relation(fields: [employerId], references: [id])
+  employer    User          @relation(fields: [employerId], references: [id])
+  Application Application[]
+}
+
+model Application {
+  id          Int               @id @default(autoincrement())
+  jobId       Int
+  applicantId Int
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+
+  job       Job  @relation(fields: [jobId], references: [id])
+  applicant User @relation(fields: [applicantId], references: [id])
+
+  @@unique([jobId, applicantId])
 }
