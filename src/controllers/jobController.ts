@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import * as jobService from '../services/jobService';
 import * as applicationService from '../services/applicationService'; 
+import { sendNotification } from '../services/notificationService';
 
 export const createJob = async (req: AuthRequest, res: Response) => {
   try {
@@ -41,6 +42,10 @@ export const applyJob = async (req: AuthRequest, res: Response) => {
     }
 
     const application = await applicationService.applyJob(jobId, userId);
+
+    const message = `User ID ${userId} baru saja melamar ke Job ID ${jobId}. Segera proses!`;
+    
+    sendNotification(message); 
 
     res.status(201).json({
       message: "Lamaran berhasil dikirim!",
