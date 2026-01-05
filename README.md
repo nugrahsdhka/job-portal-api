@@ -1,145 +1,107 @@
-# 🚀 Job Portal API
+# 🚀 Job Portal API (Main Gateway)
 
-> **RESTful Backend API** for a job marketplace platform, built with **Node.js**, **TypeScript**, and a clean **Layered Architecture** focusing on security and maintainability.
+> **RESTful Backend API** for a job marketplace platform, built with **Node.js**, **TypeScript**, and **Microservices Architecture**.
 
 ![NodeJS](https://img.shields.io/badge/Node.js-20232A?style=for-the-badge\&logo=node.js\&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge\&logo=typescript\&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge\&logo=Prisma\&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge\&logo=mysql\&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge\&logo=rabbitmq\&logoColor=white)
 
 ---
 
 ## 📖 About the Project
 
-This project is a **backend simulation of a Job Portal system** (a lightweight version of LinkedIn / JobStreet) with a strong focus on:
+This project acts as the **Main API Gateway** for the Job Portal system. It handles:
 
-* API security
-* Complex relational data modeling
-* Clear separation of responsibilities
-* Non-trivial business logic
+* User Authentication & Authorization
+* Job Posting & Application Management
+* Data Persistence (MySQL)
+* **Event Publishing** to background workers via RabbitMQ
 
-It is designed as a **backend portfolio project**, not just another CRUD application.
+Unlike a traditional monolith, this API **offloads heavy tasks** (such as sending emails) to a separate **Go microservice**, ensuring the main application remains fast and non-blocking.
 
-### 👥 System Roles
+---
 
-1. **Employer**
+## 🔗 Microservices Ecosystem
 
-   * Create and manage job postings
-   * View applicants (with ownership validation)
-2. **Applicant**
+This repository is part of a larger system:
 
-   * Browse job listings
-   * Apply for available jobs
+* 🟢 **Producer (This Repo)**: Node.js API (handles HTTP requests and publishes events)
+* 🔵 **Consumer (Worker)**: **Go Notification Service** – processes background tasks (email notifications)
+
+---
+
+## 🏗️ System Architecture
+
+The system follows an **Event-Driven Architecture** for handling notifications.
+
+```mermaid
+graph TD
+    User[👤 Client / Postman] -->|HTTP POST /apply| API[🟢 Node.js API]
+    API -->|Save Data| DB[(🗄️ MySQL)]
+    API -->|Publish Event| MQ[🟠 RabbitMQ]
+    MQ -->|Consume Message| Go[🔵 Go Worker Service]
+    Go -->|Send Email| SMTP[📧 Mailtrap / SMTP]
+```
 
 ---
 
 ## ✨ Key Features
 
-### 🔐 Authentication & Authorization
+### 🔐 Authentication & Security
 
-* Secure login and registration using **JWT**
-* Password hashing with **Bcrypt**
-* Token-based authentication (Bearer Token)
+* JWT-based authentication
+* Password hashing with Bcrypt
+* Role-Based Access Control (RBAC): **EMPLOYER** vs **APPLICANT**
 
-### 🛡️ Role-Based Access Control (RBAC)
+### 💼 Core Business Logic
 
-* Middleware-based access control by role:
+* Many-to-Many relationship between Users and Jobs
+* Validation to prevent duplicate job applications
+* Ownership checks: only job owners can view applicants
 
-  * `EMPLOYER`
-  * `APPLICANT`
+### ⚡ Performance & Scalability
 
-### 💼 Job Management
-
-* Full CRUD operations for job postings
-* Strong ownership relationship between jobs and employers
-
-### 📝 Application System (Business Logic)
-
-* Prevents **duplicate job applications**
-* Application status validation
-* Many-to-many relationship between Users and Jobs
-
-### 👁️ Privacy & Ownership Validation
-
-* **Only the job owner** can view applicants for a job
-* Unauthorized access is automatically rejected
-
-### 📐 Code Architecture
-
-* **Controller Layer** → HTTP request & response handling
-* **Service Layer** → Core business logic
-* **Repository / Prisma Layer** → Database abstraction
-* Clear separation of concerns for scalability
+* Asynchronous processing using RabbitMQ
+* Non-blocking notification handling
+* Layered architecture (Controller → Service → Repository)
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Component          | Technology               |
-| ------------------ | ------------------------ |
-| Runtime            | Node.js                  |
-| Language           | TypeScript (Strict Mode) |
-| Framework          | Express.js               |
-| Database           | MySQL                    |
-| ORM                | Prisma                   |
-| Authentication     | JWT + Bcrypt             |
-| Environment Config | Dotenv                   |
-
----
-
-## 🗄️ Database Design (ERD)
-
-The system uses a **Many-to-Many** relationship between Users and Jobs via the Application table.
-
-```mermaid
-erDiagram
-    USER ||--o{ JOB : "posts"
-    USER ||--o{ APPLICATION : "applies"
-    JOB  ||--o{ APPLICATION : "receives"
-
-    USER {
-        int id PK
-        string email
-        string password
-        enum role
-    }
-    
-    JOB {
-        int id PK
-        string title
-        string description
-        int employerId FK
-    }
-
-    APPLICATION {
-        int id PK
-        int userId FK
-        int jobId FK
-        enum status
-    }
-```
+| Component      | Technology               |
+| -------------- | ------------------------ |
+| Runtime        | Node.js                  |
+| Language       | TypeScript (Strict Mode) |
+| Framework      | Express.js               |
+| Database       | MySQL                    |
+| ORM            | Prisma                   |
+| Message Broker | RabbitMQ (amqplib)       |
+| Authentication | JWT + Bcrypt             |
 
 ---
 
 ## 📂 Project Structure
 
-```
+```plaintext
 src/
-├── config/             # Environment & database configuration
-├── controllers/        # HTTP layer (Request / Response)
+├── config/             # Environment configuration
+├── controllers/        # HTTP request handlers
 │   ├── authController.ts
 │   └── jobController.ts
-├── services/           # Core business logic
+├── services/           # Business logic layer
 │   ├── authService.ts
 │   ├── jobService.ts
-│   └── applicationService.ts
-├── middlewares/        # Authentication, RBAC, validation
+│   ├── applicationService.ts
+│   └── notificationService.ts  # RabbitMQ producer
+├── middlewares/        # Authentication & validation
 │   └── authMiddleware.ts
-├── routes/             # API route definitions
+├── routes/             # API routes
 │   ├── authRoutes.ts
 │   └── jobRoutes.ts
-├── types/              # Custom TypeScript types
 └── server.ts           # Application entry point
 ```
 
@@ -150,14 +112,19 @@ src/
 ### Prerequisites
 
 * Node.js v16+
-* MySQL (Laragon / XAMPP / Docker)
+* MySQL Database
+* RabbitMQ Server (Local or CloudAMQP)
+
+---
 
 ### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/job-portal-api.git
+git clone https://github.com/nugrahsdhka/job-portal-api.git
 cd job-portal-api
 ```
+
+---
 
 ### 2️⃣ Install Dependencies
 
@@ -165,15 +132,22 @@ cd job-portal-api
 npm install
 ```
 
-### 3️⃣ Environment Variables Setup
+---
+
+### 3️⃣ Environment Variables
 
 Create a `.env` file in the project root:
 
 ```env
 PORT=3000
 DATABASE_URL="mysql://root:@localhost:3306/job_portal_db"
-JWT_SECRET="your_super_secure_secret"
+JWT_SECRET="your_secret_key"
+
+# RabbitMQ Connection
+RABBITMQ_URL="amqps://user:pass@host/vhost"
 ```
+
+---
 
 ### 4️⃣ Database Setup
 
@@ -181,16 +155,12 @@ JWT_SECRET="your_super_secure_secret"
 npx prisma db push
 ```
 
+---
+
 ### 5️⃣ Run the Server
 
 ```bash
 npm run dev
-```
-
-The server will run at:
-
-```
-http://localhost:3000
 ```
 
 ---
@@ -199,36 +169,31 @@ http://localhost:3000
 
 ### 👤 Authentication
 
-| Method | Endpoint           | Description              | Auth |
-| ------ | ------------------ | ------------------------ | ---- |
-| POST   | /api/auth/register | Register new user        | ❌    |
-| POST   | /api/auth/login    | Login & get JWT          | ❌    |
-| GET    | /api/auth/profile  | Get current user profile | ✅    |
+| Method | Endpoint             | Description              | Auth |
+| ------ | -------------------- | ------------------------ | ---- |
+| POST   | `/api/auth/register` | Register new user        | ❌    |
+| POST   | `/api/auth/login`    | Login & get JWT          | ❌    |
+| GET    | `/api/auth/profile`  | Get current user profile | ✅    |
 
-### 💼 Jobs
+### 💼 Jobs & Applications
 
-| Method | Endpoint  | Description      | Auth         |
-| ------ | --------- | ---------------- | ------------ |
-| GET    | /api/jobs | Get all jobs     | ❌            |
-| POST   | /api/jobs | Create a new job | ✅ (Employer) |
-
-### 📝 Applications
-
-| Method | Endpoint                 | Description     | Auth      |
-| ------ | ------------------------ | --------------- | --------- |
-| POST   | /api/jobs/:id/apply      | Apply for a job | ✅         |
-| GET    | /api/jobs/:id/applicants | View applicants | ✅ (Owner) |
+| Method | Endpoint                   | Description                         | Auth         |
+| ------ | -------------------------- | ----------------------------------- | ------------ |
+| GET    | `/api/jobs`                | Get all jobs                        | ❌            |
+| POST   | `/api/jobs`                | Create a new job                    | ✅ (Employer) |
+| POST   | `/api/jobs/:id/apply`      | Apply to job & trigger notification | ✅            |
+| GET    | `/api/jobs/:id/applicants` | View job applicants                 | ✅ (Owner)    |
 
 ---
 
 ## 🔮 Future Improvements
 
-* [ ] CV upload (file handling)
-* [ ] Email notifications for new applications
-* [ ] Unit & integration testing (Jest)
-* [ ] Pagination and filtering
+* [x] Microservices Integration
+* [x] Event-Driven Email Notifications
+* [ ] CV Upload (File Storage)
+* [ ] Unit Testing (Jest)
+* [ ] Dockerization (Docker Compose)
 
 ---
 
-**Built to demonstrate real backend engineering skills**
-
+Built to demonstrate **Polyglot Programming**, **Event-Driven Architecture**, and **Microservices Design Skills**.
